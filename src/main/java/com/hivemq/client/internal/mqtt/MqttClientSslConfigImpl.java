@@ -21,7 +21,9 @@ import com.hivemq.client.mqtt.MqttClientSslConfig;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.net.ssl.*;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.TrustManagerFactory;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -32,21 +34,8 @@ import java.util.Optional;
  */
 public class MqttClientSslConfigImpl implements MqttClientSslConfig {
 
-    static final @Nullable HostnameVerifier DEFAULT_HOSTNAME_VERIFIER;
-
-    static {
-        HostnameVerifier hostnameVerifier = null;
-        try {
-            new SSLParameters().setEndpointIdentificationAlgorithm("HTTPS");
-        } catch (final NoSuchMethodError e) { // Android API < 24 compatibility
-            hostnameVerifier = HttpsURLConnection.getDefaultHostnameVerifier();
-        }
-        DEFAULT_HOSTNAME_VERIFIER = hostnameVerifier;
-    }
-
     static final @NotNull MqttClientSslConfigImpl DEFAULT =
-            new MqttClientSslConfigImpl(null, null, null, null, (int) DEFAULT_HANDSHAKE_TIMEOUT_MS,
-                    DEFAULT_HOSTNAME_VERIFIER);
+            new MqttClientSslConfigImpl(null, null, null, null, (int) DEFAULT_HANDSHAKE_TIMEOUT_MS, null);
 
     private final @Nullable KeyManagerFactory keyManagerFactory;
     private final @Nullable TrustManagerFactory trustManagerFactory;

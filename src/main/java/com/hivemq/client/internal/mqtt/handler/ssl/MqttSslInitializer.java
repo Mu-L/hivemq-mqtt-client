@@ -27,6 +27,7 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import org.jetbrains.annotations.NotNull;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLParameters;
 import java.net.InetSocketAddress;
@@ -71,10 +72,18 @@ public final class MqttSslInitializer {
         Netty treats Android (all versions) as Java 6, so SSLParameters.setEndpointIdentificationAlgorithm is not called on Android with netty 4.1.
         So SSLParameters.setEndpointIdentificationAlgorithm still needs to be called here.
          */
-        final HostnameVerifier hostnameVerifier = sslConfig.getRawHostnameVerifier();
+        HostnameVerifier hostnameVerifier = sslConfig.getRawHostnameVerifier();
         if (hostnameVerifier == null) {
             final SSLParameters sslParameters = sslHandler.engine().getSSLParameters();
-            sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+            try {
+                sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+            } catch (final NoSuchMethodError e) {
+                /*
+                On Android API < 24 SSLParameters.setEndpointIdentificationAlgorithm is not available
+                The HttpsURLConnection.getDefaultHostnameVerifier performs HTTPS hostname verification on Android
+                 */
+                hostnameVerifier = HttpsURLConnection.getDefaultHostnameVerifier();
+            }
             sslHandler.engine().setSSLParameters(sslParameters);
         }
 
