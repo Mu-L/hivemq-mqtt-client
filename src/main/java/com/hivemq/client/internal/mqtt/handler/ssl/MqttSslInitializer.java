@@ -65,6 +65,12 @@ public final class MqttSslInitializer {
 
         sslHandler.setHandshakeTimeoutMillis(sslConfig.getHandshakeTimeoutMs());
 
+        /*
+        SSLParameters.setEndpointIdentificationAlgorithm is called by netty because we called SslContextBuilder.endpointIdentificationAlgorithm.
+        In Netty 4.1, this call is guarded by a Java version >= 7 check.
+        Netty treats Android (all versions) as Java 6, so SSLParameters.setEndpointIdentificationAlgorithm is not called on Android with netty 4.1.
+        So SSLParameters.setEndpointIdentificationAlgorithm still needs to be called here.
+         */
         final HostnameVerifier hostnameVerifier = sslConfig.getRawHostnameVerifier();
         if (hostnameVerifier == null) {
             final SSLParameters sslParameters = sslHandler.engine().getSSLParameters();
@@ -87,6 +93,7 @@ public final class MqttSslInitializer {
                 .keyManager(sslConfig.getRawKeyManagerFactory())
                 .protocols((protocols == null) ? null : protocols.toArray(new String[0]))
                 .ciphers(sslConfig.getRawCipherSuites(), SupportedCipherSuiteFilter.INSTANCE)
+                .endpointIdentificationAlgorithm((sslConfig.getRawHostnameVerifier() == null) ? "HTTPS" : null)
                 .build();
     }
 
