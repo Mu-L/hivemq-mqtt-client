@@ -41,6 +41,7 @@ import java.util.function.Consumer;
 public final class MqttSslInitializer {
 
     private static final @NotNull String SSL_HANDLER_NAME = "ssl";
+    private static final @NotNull String ENDPOINT_IDENTIFICATION_ALGORITHM = "HTTPS";
 
     public static void initChannel(
             final @NotNull Channel channel,
@@ -76,7 +77,16 @@ public final class MqttSslInitializer {
         if (hostnameVerifier == null) {
             final SSLParameters sslParameters = sslHandler.engine().getSSLParameters();
             try {
-                sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+                sslParameters.setEndpointIdentificationAlgorithm(ENDPOINT_IDENTIFICATION_ALGORITHM);
+                sslHandler.engine().setSSLParameters(sslParameters);
+                if (!ENDPOINT_IDENTIFICATION_ALGORITHM.equals(
+                        sslHandler.engine().getSSLParameters().getEndpointIdentificationAlgorithm())) {
+                    /*
+                    On Android API 24 and 25 SSLParameters.setEndpointIdentificationAlgorithm is available but the call is ignored
+                    The HttpsURLConnection.getDefaultHostnameVerifier performs HTTPS hostname verification on Android
+                     */
+                    hostnameVerifier = HttpsURLConnection.getDefaultHostnameVerifier();
+                }
             } catch (final NoSuchMethodError e) {
                 /*
                 On Android API < 24 SSLParameters.setEndpointIdentificationAlgorithm is not available
@@ -84,7 +94,6 @@ public final class MqttSslInitializer {
                  */
                 hostnameVerifier = HttpsURLConnection.getDefaultHostnameVerifier();
             }
-            sslHandler.engine().setSSLParameters(sslParameters);
         }
 
         final MqttSslAdapterHandler sslAdapterHandler =
@@ -102,7 +111,8 @@ public final class MqttSslInitializer {
                 .keyManager(sslConfig.getRawKeyManagerFactory())
                 .protocols((protocols == null) ? null : protocols.toArray(new String[0]))
                 .ciphers(sslConfig.getRawCipherSuites(), SupportedCipherSuiteFilter.INSTANCE)
-                .endpointIdentificationAlgorithm((sslConfig.getRawHostnameVerifier() == null) ? "HTTPS" : null)
+                .endpointIdentificationAlgorithm(
+                        (sslConfig.getRawHostnameVerifier() == null) ? ENDPOINT_IDENTIFICATION_ALGORITHM : null)
                 .build();
     }
 
