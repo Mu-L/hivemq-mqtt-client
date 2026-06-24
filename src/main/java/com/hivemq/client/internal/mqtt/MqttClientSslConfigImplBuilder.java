@@ -39,7 +39,7 @@ public abstract class MqttClientSslConfigImplBuilder<B extends MqttClientSslConf
     private @Nullable ImmutableList<String> cipherSuites;
     private @Nullable ImmutableList<String> protocols;
     private int handshakeTimeoutMs = (int) MqttClientSslConfigImpl.DEFAULT_HANDSHAKE_TIMEOUT_MS;
-    private @Nullable HostnameVerifier hostnameVerifier = MqttClientSslConfigImpl.DEFAULT_HOSTNAME_VERIFIER;
+    private @Nullable HostnameVerifier hostnameVerifier;
 
     MqttClientSslConfigImplBuilder() {}
 
@@ -84,8 +84,7 @@ public abstract class MqttClientSslConfigImplBuilder<B extends MqttClientSslConf
     }
 
     public @NotNull B hostnameVerifier(final @Nullable HostnameVerifier hostnameVerifier) {
-        this.hostnameVerifier =
-                (hostnameVerifier == null) ? MqttClientSslConfigImpl.DEFAULT_HOSTNAME_VERIFIER : hostnameVerifier;
+        this.hostnameVerifier = hostnameVerifier;
         return self();
     }
 

@@ -27,6 +27,7 @@ import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import org.jetbrains.annotations.NotNull;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLParameters;
 import java.net.InetSocketAddress;
@@ -40,6 +41,7 @@ import java.util.function.Consumer;
 public final class MqttSslInitializer {
 
     private static final @NotNull String SSL_HANDLER_NAME = "ssl";
+    private static final @NotNull String ENDPOINT_IDENTIFICATION_ALGORITHM = "HTTPS";
 
     public static void initChannel(
             final @NotNull Channel channel,
@@ -65,11 +67,33 @@ public final class MqttSslInitializer {
 
         sslHandler.setHandshakeTimeoutMillis(sslConfig.getHandshakeTimeoutMs());
 
-        final HostnameVerifier hostnameVerifier = sslConfig.getRawHostnameVerifier();
+        /*
+        SSLParameters.setEndpointIdentificationAlgorithm is called by netty because we called SslContextBuilder.endpointIdentificationAlgorithm.
+        In Netty 4.1, this call is guarded by a Java version >= 7 check.
+        Netty treats Android (all versions) as Java 6, so SSLParameters.setEndpointIdentificationAlgorithm is not called on Android with netty 4.1.
+        So SSLParameters.setEndpointIdentificationAlgorithm still needs to be called here.
+         */
+        HostnameVerifier hostnameVerifier = sslConfig.getRawHostnameVerifier();
         if (hostnameVerifier == null) {
             final SSLParameters sslParameters = sslHandler.engine().getSSLParameters();
-            sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
-            sslHandler.engine().setSSLParameters(sslParameters);
+            try {
+                sslParameters.setEndpointIdentificationAlgorithm(ENDPOINT_IDENTIFICATION_ALGORITHM);
+                sslHandler.engine().setSSLParameters(sslParameters);
+                if (!ENDPOINT_IDENTIFICATION_ALGORITHM.equals(
+                        sslHandler.engine().getSSLParameters().getEndpointIdentificationAlgorithm())) {
+                    /*
+                    On Android API 24 and 25 SSLParameters.setEndpointIdentificationAlgorithm is available but the call is ignored
+                    The HttpsURLConnection.getDefaultHostnameVerifier performs HTTPS hostname verification on Android
+                     */
+                    hostnameVerifier = HttpsURLConnection.getDefaultHostnameVerifier();
+                }
+            } catch (final NoSuchMethodError e) {
+                /*
+                On Android API < 24 SSLParameters.setEndpointIdentificationAlgorithm is not available
+                The HttpsURLConnection.getDefaultHostnameVerifier performs HTTPS hostname verification on Android
+                 */
+                hostnameVerifier = HttpsURLConnection.getDefaultHostnameVerifier();
+            }
         }
 
         final MqttSslAdapterHandler sslAdapterHandler =
@@ -87,6 +111,8 @@ public final class MqttSslInitializer {
                 .keyManager(sslConfig.getRawKeyManagerFactory())
                 .protocols((protocols == null) ? null : protocols.toArray(new String[0]))
                 .ciphers(sslConfig.getRawCipherSuites(), SupportedCipherSuiteFilter.INSTANCE)
+                .endpointIdentificationAlgorithm(
+                        (sslConfig.getRawHostnameVerifier() == null) ? ENDPOINT_IDENTIFICATION_ALGORITHM : null)
                 .build();
     }
 
